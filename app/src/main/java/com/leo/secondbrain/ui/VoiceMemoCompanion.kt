@@ -55,9 +55,10 @@ internal fun VoiceMemoSlime(face: SlimeFace, state: RecordingState, run: Capture
         else -> VoicePhase.IDLE
     }
     val motion = remember { Animatable(0f) }
-    LaunchedEffect(state.captureId, phase, status) {
+    val simplified = LocalSimplifiedMotion.current
+    LaunchedEffect(state.captureId, phase, status, simplified) {
         motion.snapTo(0f)
-        if (!ValueAnimator.areAnimatorsEnabled()) return@LaunchedEffect
+        if (simplified || !ValueAnimator.areAnimatorsEnabled()) return@LaunchedEffect
         if (status == CaptureStatus.ORGANIZED) {
             motion.animateTo(-5f, Motion.press())
             motion.animateTo(0f, Motion.settle())
@@ -68,7 +69,7 @@ internal fun VoiceMemoSlime(face: SlimeFace, state: RecordingState, run: Capture
             }
         }
     }
-    val level = state.level.takeIf { phase == VoicePhase.LISTENING && ValueAnimator.areAnimatorsEnabled() } ?: 0f
+    val level = state.level.takeIf { phase == VoicePhase.LISTENING && !simplified && ValueAnimator.areAnimatorsEnabled() } ?: 0f
     SlimeFaceDrawing(face, phase, deform = Offset(0f, level * .16f),
         asleep = state.started == null && !state.saving && run == null && !failed,
         concerned = failed, modifier = Modifier.size(38.dp).testTag("voice-memo-slime")

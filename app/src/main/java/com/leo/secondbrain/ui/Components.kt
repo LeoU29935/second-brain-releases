@@ -160,11 +160,14 @@ internal fun NavItem(
     onClick: () -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
+    val simplified = LocalSimplifiedMotion.current
     val background by androidx.compose.animation.animateColorAsState(
-        if (active) colors.primary else colors.primary.copy(alpha = 0f), Motion.glide(), label = "Navigation color")
+        if (active) colors.primary else colors.primary.copy(alpha = 0f),
+        if (simplified) androidx.compose.animation.core.snap() else Motion.glide(), label = "Navigation color")
     val foreground = if (active) colors.onPrimary else colors.onSurfaceVariant
     val pillWidth by androidx.compose.animation.core.animateDpAsState(
-        if (active) 46.dp else 34.dp, Motion.press(), label = "Navigation selection")
+        if (active) 46.dp else 34.dp,
+        if (simplified) androidx.compose.animation.core.snap() else Motion.press(), label = "Navigation selection")
     Surface(
         onClick = onClick,
         modifier = modifier.heightIn(min = Space.touch).semantics {

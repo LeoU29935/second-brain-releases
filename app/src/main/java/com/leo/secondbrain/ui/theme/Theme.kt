@@ -15,6 +15,7 @@ import com.leo.secondbrain.data.ColorTheme
 import com.leo.secondbrain.data.DynamicIntensity
 import com.leo.secondbrain.data.Preferences
 import com.leo.secondbrain.ui.Motion
+import com.leo.secondbrain.ui.LocalSimplifiedMotion
 
 private val LocalDark = staticCompositionLocalOf { false }
 private val brainShapes = Shapes(
@@ -37,17 +38,20 @@ internal fun SecondBrainTheme(night: Boolean, preferences: Preferences, content:
     var previous by remember { mutableStateOf(target) }
     var destination by remember { mutableStateOf(target) }
     val progress = remember { Animatable(1f) }
-    LaunchedEffect(target) {
+    LaunchedEffect(target, preferences.simplifyMotion) {
         if (target != destination) {
             previous = blend(previous, destination, progress.value)
             destination = target
-            progress.snapTo(0f)
-            progress.animateTo(1f, tween(Motion.THEME))
+            if (!preferences.simplifyMotion) {
+                progress.snapTo(0f)
+                progress.animateTo(1f, tween(Motion.THEME))
+            }
         }
+        if (preferences.simplifyMotion) progress.snapTo(1f)
     }
     val colors = if (progress.value >= 1f) destination else blend(previous, destination, progress.value)
     val typography = remember(preferences.typography) { brainTypography(preferences.typography) }
-    CompositionLocalProvider(LocalDark provides night) {
+    CompositionLocalProvider(LocalDark provides night, LocalSimplifiedMotion provides preferences.simplifyMotion) {
         MaterialTheme(colorScheme = colors, typography = typography, shapes = brainShapes, content = content)
     }
 }

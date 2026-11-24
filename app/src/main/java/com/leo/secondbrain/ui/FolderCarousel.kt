@@ -180,10 +180,14 @@ internal fun ItemOrderDialog(
     var order by rememberSaveable { mutableStateOf(ArrayList(items.map { it.first })) }
     val byId = items.toMap()
     val haptic = LocalHapticFeedback.current
+    val simplified = LocalSimplifiedMotion.current
     BrainDialog(onDismissRequest = onClose, title = { Text(title) }, text = {
         androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 360.dp)) {
             items(order.size, key = { order[it] }) { index ->
                 val id = order[index]
+                var dragging by remember { mutableStateOf(false) }
+                val stretch by androidx.compose.animation.core.animateFloatAsState(
+                    if (dragging && !simplified) 1.035f else 1f, Motion.press(), label = "Reordering item")
                 fun move(offset: Int): Boolean {
                     val from = order.indexOf(id)
                     val to = from + offset
@@ -193,7 +197,9 @@ internal fun ItemOrderDialog(
                     return true
                 }
                 val moveItem by rememberUpdatedState(::move)
-                Row(Modifier.fillMaxWidth().animateItem().height(52.dp).padding(horizontal = 8.dp)
+                val placement = if (simplified) Modifier else Modifier.animateItem()
+                Row(Modifier.fillMaxWidth().then(placement).heightIn(min = 52.dp).padding(horizontal = 8.dp)
+                    .graphicsLayer { scaleX = stretch }
                     .semantics {
                         customActions = listOfNotNull(
                             CustomAccessibilityAction("Move up") { move(-1) }.takeIf { index > 0 },
@@ -202,7 +208,8 @@ internal fun ItemOrderDialog(
                     Text(byId[id].orEmpty(), Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Box(Modifier.size(48.dp).semantics { contentDescription = "Reorder ${byId[id].orEmpty()}" }.pointerInput(id) {
                         var distance = 0f
-                        detectDragGestures(onDragStart = {
+                        detectDragGestures(onDragEnd = { dragging = false }, onDragCancel = { dragging = false }, onDragStart = {
+                            dragging = true
                             distance = 0f
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         }) { change, amount ->

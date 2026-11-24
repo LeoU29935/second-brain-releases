@@ -46,6 +46,8 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
@@ -590,7 +592,8 @@ private fun CreateSheet(onClose: () -> Unit, onNote: () -> Unit, onTask: () -> U
     onCollection: () -> Unit, onEvent: () -> Unit, onCapture: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     BrainSheet(onDismissRequest = onClose) {
-        Column(Modifier.fillMaxWidth().padding(start = 19.dp, end = 19.dp, bottom = 20.dp),
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+            .padding(start = 19.dp, end = 19.dp, bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Text("Create", Modifier.padding(bottom = 4.dp), style = MaterialTheme.typography.headlineSmall)
             CreateLink("Note", Glyph.NOTE, colors.primary, onNote)

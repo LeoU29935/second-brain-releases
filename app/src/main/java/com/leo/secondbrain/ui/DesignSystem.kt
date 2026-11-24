@@ -1,6 +1,7 @@
 package com.leo.secondbrain.ui
 
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.*
@@ -17,11 +18,14 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -43,11 +47,27 @@ internal object Motion {
     private val release = CubicBezierEasing(.20f, .75f, .24f, 1f)
     fun <T> settle() = spring<T>(dampingRatio = .83f, stiffness = Spring.StiffnessMediumLow)
     fun <T> press() = spring<T>(dampingRatio = .86f, stiffness = Spring.StiffnessMedium)
+    fun <T> bloom() = spring<T>(dampingRatio = .67f, stiffness = Spring.StiffnessMedium)
     fun <T> glide(duration: Int = ENTER) = tween<T>(duration, easing = release)
     fun reveal(): EnterTransition = expandVertically(settle(), expandFrom = androidx.compose.ui.Alignment.Top) +
         fadeIn(glide(QUICK)) + slideInVertically(glide()) { -minOf(it, 24) }
     fun conceal(): ExitTransition = shrinkVertically(glide(QUICK), shrinkTowards = androidx.compose.ui.Alignment.Top) +
         fadeOut(glide(QUICK))
+}
+
+internal val LocalSimplifiedMotion = compositionLocalOf { false }
+
+@Composable private fun Modifier.liquidEntrance(anchor: TransformOrigin): Modifier {
+    val simplified = LocalSimplifiedMotion.current
+    val progress = remember { Animatable(if (simplified) 1f else 0f) }
+    LaunchedEffect(simplified) {
+        if (simplified) progress.snapTo(1f) else progress.animateTo(1f, Motion.bloom())
+    }
+    return graphicsLayer {
+        transformOrigin = anchor
+        scaleX = .91f + .09f * progress.value
+        scaleY = .95f + .05f * progress.value
+    }
 }
 
 @Composable internal fun BrainButton(onClick: () -> Unit, enabled: Boolean = true,
@@ -59,6 +79,7 @@ internal object Motion {
 
 @Composable
 internal fun Modifier.softPress(interaction: MutableInteractionSource, amount: Float = .025f): Modifier {
+    if (LocalSimplifiedMotion.current) return this
     val pressed by interaction.collectIsPressedAsState()
     val scale = androidx.compose.animation.core.animateFloatAsState(
         if (pressed) 1f - amount else 1f, Motion.press(), label = "Press feedback")
@@ -73,7 +94,9 @@ internal fun Modifier.softPress(interaction: MutableInteractionSource, amount: F
 
 @Composable internal fun BrainChip(selected: Boolean, onClick: () -> Unit, label: @Composable () -> Unit,
     leadingIcon: (@Composable () -> Unit)? = null, modifier: Modifier = Modifier) {
-    FilterChip(selected, onClick, label, modifier = modifier, shape = MaterialTheme.shapes.medium, leadingIcon = leadingIcon,
+    val interaction = remember { MutableInteractionSource() }
+    FilterChip(selected, onClick, label, modifier = modifier.softPress(interaction),
+        interactionSource = interaction, shape = MaterialTheme.shapes.medium, leadingIcon = leadingIcon,
         border = null, colors = FilterChipDefaults.filterChipColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
             selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -112,13 +135,15 @@ internal fun Modifier.softPress(interaction: MutableInteractionSource, amount: F
     onDismissRequest: () -> Unit, title: @Composable () -> Unit, text: @Composable () -> Unit,
     confirmButton: @Composable () -> Unit, dismissButton: (@Composable () -> Unit)? = null
 ) {
-    AlertDialog(onDismissRequest, confirmButton, dismissButton = dismissButton, title = title, text = text,
+    AlertDialog(onDismissRequest, confirmButton, modifier = Modifier.liquidEntrance(TransformOrigin.Center),
+        dismissButton = dismissButton, title = title, text = text,
         shape = MaterialTheme.shapes.extraLarge, containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable internal fun BrainSheet(onDismissRequest: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    ModalBottomSheet(onDismissRequest, sheetMaxWidth = 520.dp, shape = RoundedCornerShape(topStart = Space.xl, topEnd = Space.xl),
+    ModalBottomSheet(onDismissRequest, modifier = Modifier.liquidEntrance(TransformOrigin(.5f, 1f)),
+        sheetMaxWidth = 520.dp, shape = RoundedCornerShape(topStart = Space.xl, topEnd = Space.xl),
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow, content = content)
 }
 

@@ -147,7 +147,7 @@ class WidgetCaptureActivity : ComponentActivity() {
 
     private fun autoStarts(intent: Intent): Boolean = when (intent.component?.className) {
         WidgetCaptureActivity::class.java.name -> intent.action == OPEN_CAPTURE
-        "$packageName.VoiceMemo" -> intent.action == Intent.ACTION_MAIN || intent.action == OPEN_CAPTURE
+        "$packageName.VoiceMemo" -> true
         else -> false
     }
 
