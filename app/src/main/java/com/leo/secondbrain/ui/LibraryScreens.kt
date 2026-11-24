@@ -52,6 +52,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.FrameRateCategory
 import androidx.compose.ui.preferredFrameRate
 import androidx.compose.ui.graphics.Color
@@ -488,10 +489,11 @@ private fun FolderBreadcrumbHeader(
                 val current = index == folders.lastIndex
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                     if (index > 0) BrainIcon(Glyph.NEXT, Modifier.size(11.dp), tint = MaterialTheme.colorScheme.outline)
+                    val shape = MaterialTheme.shapes.medium
                     Surface(
-                        Modifier.widthIn(max = 158.dp).then(if (current) Modifier else Modifier.clickable(
-                            onClickLabel = "Open ${folder.name}", onClick = { onFolder(folder) })),
-                        shape = MaterialTheme.shapes.medium, color = tint.copy(alpha = if (current) .19f else .12f)
+                        Modifier.widthIn(max = 158.dp).then(if (current) Modifier else Modifier.clip(shape)
+                            .clickable(onClickLabel = "Open ${folder.name}", onClick = { onFolder(folder) })),
+                        shape = shape, color = tint.copy(alpha = if (current) .19f else .12f)
                     ) {
                         Row(Modifier.padding(horizontal = 7.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
