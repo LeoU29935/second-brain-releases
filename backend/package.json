@@ -1,0 +1,9 @@
+{
+  "name": "second-brain-workspace",
+  "private": true,
+  "version": "0.4.8",
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": { "test": "node --test", "start": "node server.mjs" },
+  "devDependencies": { "@modelcontextprotocol/sdk": "1.32.2" }
+}

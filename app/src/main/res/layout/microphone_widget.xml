@@ -1,0 +1,33 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent">
+    <LinearLayout android:id="@+id/widget_left" android:layout_width="112dp"
+        android:layout_height="match_parent" android:layout_gravity="left" android:orientation="horizontal"
+        android:visibility="gone">
+        <ImageView android:id="@+id/mic_left" android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="match_parent" android:padding="2dp" android:scaleType="centerInside"
+            android:src="@drawable/widget_mic_preview" android:contentDescription="@string/widget_record" />
+        <ImageView android:id="@+id/calendar_left" android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="match_parent" android:padding="2dp" android:scaleType="centerInside"
+            android:src="@drawable/ic_quick_calendar" android:contentDescription="@string/quick_calendar" />
+    </LinearLayout>
+    <LinearLayout android:id="@+id/widget_center" android:layout_width="112dp"
+        android:layout_height="match_parent" android:layout_gravity="center" android:orientation="horizontal"
+        android:visibility="visible">
+        <ImageView android:id="@+id/mic_center" android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="match_parent" android:padding="2dp" android:scaleType="centerInside"
+            android:src="@drawable/widget_mic_preview" android:contentDescription="@string/widget_record" />
+        <ImageView android:id="@+id/calendar_center" android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="match_parent" android:padding="2dp" android:scaleType="centerInside"
+            android:src="@drawable/ic_quick_calendar" android:contentDescription="@string/quick_calendar" />
+    </LinearLayout>
+    <LinearLayout android:id="@+id/widget_right" android:layout_width="112dp"
+        android:layout_height="match_parent" android:layout_gravity="right" android:orientation="horizontal"
+        android:visibility="gone">
+        <ImageView android:id="@+id/mic_right" android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="match_parent" android:padding="2dp" android:scaleType="centerInside"
+            android:src="@drawable/widget_mic_preview" android:contentDescription="@string/widget_record" />
+        <ImageView android:id="@+id/calendar_right" android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="match_parent" android:padding="2dp" android:scaleType="centerInside"
+            android:src="@drawable/ic_quick_calendar" android:contentDescription="@string/quick_calendar" />
+    </LinearLayout>
+</FrameLayout>

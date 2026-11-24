@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Second Brain</string>
+    <string name="widget_record">Record a thought</string>
+    <string name="quick_calendar">Quick Calendar</string>
+    <string name="voice_memo">Voice Memo</string>
+    <string name="capture_calendar_widget">Quick Capture and Calendar</string>
+</resources>

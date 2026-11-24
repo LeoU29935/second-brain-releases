@@ -1,0 +1,12 @@
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="quick_calendar" android:enabled="true"
+        android:icon="@drawable/ic_quick_calendar" android:shortcutShortLabel="@string/quick_calendar">
+        <intent android:action="com.leo.secondbrain.OPEN_QUICK_CALENDAR"
+            android:targetPackage="com.leo.secondbrain" android:targetClass="com.leo.secondbrain.capture.QuickCalendarActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="voice_memo" android:enabled="true"
+        android:icon="@drawable/ic_voice_memo" android:shortcutShortLabel="@string/voice_memo">
+        <intent android:action="android.intent.action.MAIN"
+            android:targetPackage="com.leo.secondbrain" android:targetClass="com.leo.secondbrain.VoiceMemo" />
+    </shortcut>
+</shortcuts>
