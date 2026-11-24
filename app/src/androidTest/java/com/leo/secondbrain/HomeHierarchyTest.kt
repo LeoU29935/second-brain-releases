@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.leo.secondbrain.data.CollectionEntity
 import com.leo.secondbrain.data.TrashKind
@@ -50,6 +51,13 @@ class HomeHierarchyTest {
             onNodeWithContentDescription("Back").performClick()
             onNodeWithTag("folder:${folder.id}").performScrollTo().assertIsDisplayed()
             onNodeWithTag("folder:${otherLeaf.id}").performScrollTo().assertIsDisplayed()
+            onNodeWithContentDescription("Add to ${otherLeaf.name}").performScrollTo().performClick()
+            onNodeWithText("Note").performClick()
+            val note = "Quick add ${System.nanoTime()}"
+            onNodeWithText("Title").performTextInput(note)
+            onNodeWithContentDescription("Back").performClick()
+            waitUntil(10_000) { onAllNodesWithText(note).fetchSemanticsNodes().isNotEmpty() }
+            onNodeWithText(note).assertIsDisplayed()
         } finally {
             app.preferences.update(before)
             runBlocking {

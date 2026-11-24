@@ -92,8 +92,8 @@ val releaseCode = providers.gradleProperty("secondBrainVersionCode").orNull
 require((releaseVersion == null) == (releaseCode == null)) {
     "Set secondBrainVersionName and secondBrainVersionCode together."
 }
-val appVersionName = releaseVersion ?: "3.0"
-val appVersionCode = (releaseCode ?: "18").toInt()
+val appVersionName = releaseVersion ?: "3.0.1"
+val appVersionCode = (releaseCode ?: "19").toInt()
 require(appVersionName.matches(Regex("(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*)){1,3}")) &&
     when (appVersionName) {
         "0.3" -> appVersionCode == 3
@@ -112,6 +112,7 @@ require(appVersionName.matches(Regex("(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*)){1,3}")
         "0.4.8.3" -> appVersionCode == 16
         "0.4.8.4" -> appVersionCode == 17
         "3.0" -> appVersionCode == 18
+        "3.0.1" -> appVersionCode == 19
         else -> appVersionCode in 9..2_100_000_000
     }) {
     "V0.3 through V0.4.2.1 use version codes 3 through 8. Later releases use increasing version codes."

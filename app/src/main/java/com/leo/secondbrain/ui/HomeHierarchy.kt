@@ -3,7 +3,9 @@ package com.leo.secondbrain.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -26,7 +29,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
@@ -43,7 +48,8 @@ import com.leo.secondbrain.ui.theme.accentColor
 @Composable
 internal fun HomeHierarchy(
     state: LibraryState, preferences: Preferences, expanded: List<String>,
-    onExpand: (String) -> Unit, onFolder: (String) -> Unit, onEditFolder: (CollectionEntity) -> Unit,
+    onExpand: (String) -> Unit, onFolder: (String) -> Unit, onAddToFolder: (String) -> Unit,
+    onEditFolder: (CollectionEntity) -> Unit,
     onInbox: () -> Unit, onSearch: () -> Unit, onEntry: (TaggedEntry) -> Unit, onEvent: (Event) -> Unit,
     onPreference: (Preferences) -> Unit
 ) {
@@ -113,8 +119,9 @@ internal fun HomeHierarchy(
         }
         children[null].orEmpty().forEach { root ->
             fullWidth("branch:${root.id}") {
-                FolderBranch(root, children, expanded, preferences.simplifyMotion, 0,
-                    onExpand, onFolder, onEditFolder) { reorderBranch = it.orEmpty() }
+                FolderBranch(root, children, expanded, preferences.simplifyMotion,
+                    depth = 0, isFirst = true, isLast = true, toggle = onExpand, open = onFolder,
+                    add = onAddToFolder, edit = onEditFolder) { reorderBranch = it.orEmpty() }
             }
         }
         if (children[null].isNullOrEmpty()) fullWidth("empty hierarchy") {
@@ -139,24 +146,29 @@ private data class HomePin(val id: String, val title: String, val glyph: Glyph, 
 @Composable
 private fun FolderBranch(
     folder: CollectionEntity, children: Map<String?, List<CollectionEntity>>, expanded: List<String>,
-    simpleMotion: Boolean, depth: Int, toggle: (String) -> Unit, open: (String) -> Unit,
+    simpleMotion: Boolean, depth: Int, isFirst: Boolean, isLast: Boolean,
+    toggle: (String) -> Unit, open: (String) -> Unit, add: (String) -> Unit,
     edit: (CollectionEntity) -> Unit, reorder: (String?) -> Unit
 ) {
     val peers = children[folder.parentId].orEmpty()
     val nested = children[folder.id].orEmpty()
     val showing = nested.isNotEmpty() && folder.id in expanded
+    val root = depth == 0
     val colors = MaterialTheme.colorScheme
     val tint = accentColor(folder.color)
-    val roundness by animateDpAsState(if (showing) 12.dp else 29.dp,
+    val roundness by animateDpAsState(if (showing || !isLast) 9.dp else 24.dp,
         if (simpleMotion) androidx.compose.animation.core.snap() else Motion.press(), label = "Folder shape")
     val arrow by animateFloatAsState(if (showing) 180f else 0f,
         if (simpleMotion) androidx.compose.animation.core.snap() else Motion.press(), label = "Folder expansion")
     val item = WorkspaceItem(folder.id, folder.name, TrashKind.COLLECTION, folder.parentId)
+    val topRadius = if (root || isFirst) 24.dp else 9.dp
+    val fill = lerp(if (root) colors.surfaceContainerHighest else colors.surfaceContainer,
+        tint, if (root) .09f else .045f)
     Column {
         ContextCard(border = null,
-            shape = RoundedCornerShape(topStart = 29.dp, topEnd = 29.dp,
+            shape = RoundedCornerShape(topStart = topRadius, topEnd = topRadius,
                 bottomStart = roundness, bottomEnd = roundness),
-            color = if (depth == 0) colors.surfaceContainerHigh else colors.surfaceContainer,
+            color = fill,
             interactionModifier = Modifier.testTag("folder:${folder.id}").semantics {
                 if (nested.isNotEmpty()) stateDescription = if (showing) "Expanded" else "Collapsed"
             },
@@ -164,27 +176,47 @@ private fun FolderBranch(
                 WorkspaceMenuOptions(item, close, { edit(folder) }, { open(folder.id) })
                 if (peers.size > 1) MenuOption("Reorder folders", Glyph.LIST, close) { reorder(folder.parentId) }
             }) {
-            Row(Modifier.heightIn(min = if (depth == 0) 54.dp else 48.dp).padding(horizontal = 15.dp, vertical = 5.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                CollectionSymbol(folder.icon, tint)
+            Row(Modifier.heightIn(min = if (root) 64.dp else 52.dp).padding(start = 12.dp, end = 7.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Box(Modifier.size(if (root) 36.dp else 31.dp)
+                    .background(lerp(fill, tint, .16f), CircleShape), contentAlignment = Alignment.Center) {
+                    CollectionSymbol(folder.icon, tint)
+                }
                 Text(folder.name, Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis,
-                    style = if (depth == 0) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleSmall)
+                    style = if (root) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleSmall)
                 if (nested.isNotEmpty()) {
-                    BrainIcon(Glyph.DOWN, Modifier.size(20.dp).graphicsLayer { rotationZ = arrow }, tint = tint)
-                } else BrainIcon(Glyph.NEXT, Modifier.size(16.dp), tint = colors.onSurfaceVariant)
+                    Row(Modifier.padding(end = 5.dp).background(lerp(fill, tint, .13f), CircleShape)
+                        .padding(horizontal = 9.dp, vertical = 5.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(nested.size.toString(), style = MaterialTheme.typography.labelMedium, color = colors.onSurface)
+                        BrainIcon(Glyph.DOWN, Modifier.size(15.dp).graphicsLayer { rotationZ = arrow }, tint = tint)
+                    }
+                } else {
+                    IconButton(onClick = { add(folder.id) }) {
+                        Box(Modifier.size(30.dp).background(lerp(fill, tint, .16f), CircleShape),
+                            contentAlignment = Alignment.Center) {
+                            BrainIcon(Glyph.ADD, Modifier.size(17.dp), description = "Add to ${folder.name}", tint = tint)
+                        }
+                    }
+                }
             }
         }
         AnimatedVisibility(showing, enter = if (simpleMotion) androidx.compose.animation.EnterTransition.None else Motion.reveal(),
             exit = if (simpleMotion) androidx.compose.animation.ExitTransition.None else Motion.conceal()) {
             val direction = androidx.compose.ui.platform.LocalLayoutDirection.current
+            val indent = if (depth < 3) 20.dp else 12.dp
             Column(Modifier.fillMaxWidth().drawBehind {
-                val x = if (direction == androidx.compose.ui.unit.LayoutDirection.Ltr) 7.dp.toPx() else size.width - 7.dp.toPx()
-                drawLine(tint.copy(alpha = .36f), Offset(x, 0f), Offset(x, size.height - 6.dp.toPx()), 1.dp.toPx())
-            }.padding(start = if (depth < 3) 15.dp else 10.dp, top = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                nested.forEach { sub ->
+                val inset = indent.toPx() / 2
+                val x = if (direction == androidx.compose.ui.unit.LayoutDirection.Ltr) inset else size.width - inset
+                val endpoint = Offset(x, (size.height - 11.dp.toPx()).coerceAtLeast(0f))
+                drawLine(tint.copy(alpha = .45f), Offset(x, 0f), endpoint, 1.5.dp.toPx(), StrokeCap.Round)
+                drawCircle(tint, 2.5.dp.toPx(), endpoint)
+            }.padding(start = indent, top = 4.dp, bottom = if (root) 4.dp else 0.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                nested.forEachIndexed { index, sub ->
                     androidx.compose.runtime.key(sub.id) {
-                        FolderBranch(sub, children, expanded, simpleMotion, depth + 1, toggle, open, edit, reorder)
+                        FolderBranch(sub, children, expanded, simpleMotion, depth + 1,
+                            isFirst = index == 0, isLast = index == nested.lastIndex, toggle, open, add, edit, reorder)
                     }
                 }
             }

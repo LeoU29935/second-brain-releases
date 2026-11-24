@@ -467,6 +467,12 @@ internal fun BrainApp(model: BrainViewModel, preferences: Preferences, layout: W
                                                         expanded = ArrayList(if (id in expanded) expanded - id else expanded + id)
                                                     },
                                                     onFolder = { collectionId = it; inbox = false },
+                                                    onAddToFolder = {
+                                                        collectionId = it
+                                                        visibleCollection = it
+                                                        inbox = false
+                                                        creating = true
+                                                    },
                                                     onEditFolder = { editorReturn = panel; editId = it.id; panel = Panel.COLLECTION },
                                                     onInbox = { collectionId = null; inbox = true },
                                                     onSearch = { panel = Panel.SEARCH }, onEntry = openEntry, onEvent = openEvent,

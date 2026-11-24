@@ -21,6 +21,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.semantics.contentDescription
@@ -99,7 +100,8 @@ internal fun SettingsScreen(
                             val selected = !preferences.dynamicColor && preferences.colorTheme == theme
                             val swatch = curatedColors(theme, preferences.appearance == Appearance.DARK ||
                                 preferences.appearance == Appearance.SYSTEM && isSystemInDarkTheme())
-                            Surface(Modifier.weight(1f).selectable(selected, role = Role.RadioButton,
+                            Surface(Modifier.weight(1f).clip(MaterialTheme.shapes.medium)
+                                .selectable(selected, role = Role.RadioButton,
                                 onClick = { onPreference(preferences.copy(colorTheme = theme, dynamicColor = false)) }),
                                 shape = MaterialTheme.shapes.medium,
                                 color = if (selected) colors.secondaryContainer else colors.surfaceContainerLow) {
