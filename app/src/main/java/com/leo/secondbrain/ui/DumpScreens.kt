@@ -53,6 +53,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.leo.secondbrain.BrainApplication
+import com.leo.secondbrain.ai.ClaudeModels
 import com.leo.secondbrain.data.SlimeFace
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -739,6 +740,8 @@ internal fun RecordingDialog(app: BrainApplication, face: SlimeFace, onClose: ()
 @Composable
 internal fun AiSettings(model: BrainViewModel, onBack: () -> Unit) {
     var key by remember { mutableStateOf("") }
+    var claudeKey by remember { mutableStateOf("") }
+    val claude by model.claudeSettings.collectAsStateWithLifecycle()
     var planPrompt by rememberSaveable { mutableStateOf<Boolean?>(null) }
     val credential by model.credential.collectAsStateWithLifecycle()
     val chatGpt by model.chatGptSettings.collectAsStateWithLifecycle()
@@ -771,6 +774,41 @@ internal fun AiSettings(model: BrainViewModel, onBack: () -> Unit) {
     }
     LibraryGrid {
         fullWidth("AI title") { ScreenHeader("AI Intelligence", onBack) }
+        fullWidth("Claude") {
+            Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("Claude", style = MaterialTheme.typography.titleMedium)
+                Text("Use your Anthropic API key to organize voice memos and Brain Dumps. Second Brain sends the transcript and relevant workspace details to Anthropic. Usage is billed to your Claude Console account.")
+                Text(when {
+                    claude.active -> "Claude ${claude.model.label} organizes your captures."
+                    claude.configured -> "Claude is off. ChatGPT settings below are used."
+                    else -> "No Claude key saved."
+                })
+                if (claude.configured) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (claude.enabled) {
+                            QuietButton({ model.useClaude(false) }, enabled = !claude.busy) { Text("Turn off Claude") }
+                        } else {
+                            BrainButton({ model.useClaude(true) }, enabled = !claude.busy) { Text("Use Claude") }
+                        }
+                        QuietButton(model::removeClaudeKey, enabled = !claude.busy) { Text("Remove key") }
+                    }
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        ClaudeModels.choices.forEach { choice ->
+                            QuietButton({ model.selectClaudeModel(choice.id) },
+                                enabled = !claude.busy && choice.id != claude.model.id) { Text(choice.label) }
+                        }
+                    }
+                } else {
+                    BrainField(claudeKey, { claudeKey = it.take(500) }, label = { Text("Claude API key") },
+                        singleLine = true, visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+                        modifier = Modifier.fillMaxWidth())
+                    BrainButton({ model.saveClaudeKey(claudeKey); claudeKey = "" },
+                        enabled = claudeKey.isNotBlank() && !claude.busy) { Text("Save Claude key") }
+                }
+                claude.message?.let { Text(it) }
+            }
+        }
         fullWidth("ChatGPT plan") {
             Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 Text("ChatGPT plan", style = MaterialTheme.typography.titleMedium)

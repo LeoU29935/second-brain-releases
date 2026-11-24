@@ -61,7 +61,7 @@ internal fun SettingsScreen(
     LibraryGrid {
         fullWidth("app controls") {
             SettingsGroup("App", listOf(
-                Setting("AI Intelligence", "ChatGPT and voice memo organization", Glyph.BRAND, colors.primary, onAi),
+                Setting("AI Intelligence", "Claude, ChatGPT and voice memo organization", Glyph.BRAND, colors.primary, onAi),
                 Setting("App updates", "Version and updates", Glyph.DOWN, colors.primary, onUpdate)
             ))
         }

@@ -13,3 +13,7 @@
 
 # Sherpa's native bridge resolves recognizer configuration classes and accessors by name.
 -keep class com.k2fsa.sherpa.onnx.** { *; }
+
+# The Anthropic SDK depends on OpenTelemetry, whose classes reference compile-only AutoValue annotations.
+-dontwarn com.google.auto.value.AutoValue
+-dontwarn com.google.auto.value.AutoValue$CopyAnnotations

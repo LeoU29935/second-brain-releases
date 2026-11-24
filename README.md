@@ -7,6 +7,7 @@ Second Brain stores your workspace on the device in Room. Local notes, tasks, ev
 - Home starts with global search, pinned shortcuts, and folders that expand in place. Settings → Appearance → Home layout switches to the original folder carousel. Both layouts use the same workspace.
 - Hold Plus to record and release to save. The microphone widget and compact Voice Memo shortcut are also available. A bundled multilingual Whisper model transcribes saved recordings on the phone. Your audio and transcript remain available if organization needs a retry.
 - Open Settings → AI Intelligence → Continue with ChatGPT and grant plan use with an eligible account. The app uses the official OpenAI authorization and streamed text inference endpoints. It sends the transcript and relevant workspace details to organize items. Turn off credit use in **Manage usage** to keep usage within your ChatGPT plan allowance. Subscription mode requires no API key.
+- To organize with Claude instead, open Settings → AI Intelligence → Claude, paste your Anthropic API key, and choose Opus 5.5, Sonnet 5.5 or Haiku 5.5. Requests are billed to your Claude Console account. While Claude is on, it organizes captures and ChatGPT settings are not used for organization. The voice conversation assistant still uses OpenAI.
 - The app's public build contains no workspace data or credentials. ChatGPT account credentials are encrypted by Android Keystore and stored outside device backups.
 
 ## V0.4.8.2

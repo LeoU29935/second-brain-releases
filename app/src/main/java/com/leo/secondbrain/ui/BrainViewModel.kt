@@ -219,6 +219,28 @@ internal class BrainViewModel(val app: BrainApplication) : ViewModel() {
         }
     }
 
+    val claudeSettings = app.claude.settings
+
+    fun saveClaudeKey(secret: String) = changeClaude("Claude API key saved. Claude now organizes your captures.") {
+        app.claude.saveKey(secret)
+    }
+    fun removeClaudeKey() = changeClaude("Claude API key removed.") { app.claude.removeKey() }
+    fun useClaude(enabled: Boolean) = changeClaude(
+        if (enabled) "Claude now organizes your captures." else "Claude is off. ChatGPT settings are used again."
+    ) { app.claude.setEnabled(enabled) }
+    fun selectClaudeModel(id: String) = changeClaude(null) { app.claude.selectModel(id) }
+
+    private fun changeClaude(success: String?, change: () -> Unit) {
+        if (app.claude.settings.value.busy) return
+        app.claude.report(null, busy = true)
+        viewModelScope.launch {
+            val message = withContext(Dispatchers.IO) {
+                runCatching { change(); success }.getOrElse { "Couldn’t update Claude settings. Check the key starts with sk-ant-." }
+            }
+            app.claude.report(message)
+        }
+    }
+
     fun saveCredential(secret: String) = changeCredential("API key saved.") { app.credentials.save(secret) }
 
     fun removeCredential() {
