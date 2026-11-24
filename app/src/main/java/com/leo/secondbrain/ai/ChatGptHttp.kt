@@ -2,7 +2,9 @@ package com.leo.secondbrain.ai
 
 import java.io.IOException
 import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -23,7 +25,7 @@ internal class ChatGptHttp(private val client: OkHttpClient = OkHttpClient.Build
         continuation.invokeOnCancellation { call.cancel() }
         call.enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                continuation.resumeWithException(connectionError(e))
+                continuation.resumeWithException(connectionError(e, request.url.encodedPath))
             }
 
             override fun onResponse(call: Call, response: Response) {
@@ -34,7 +36,7 @@ internal class ChatGptHttp(private val client: OkHttpClient = OkHttpClient.Build
                 } catch (error: ExpiredChatGptSession) {
                     continuation.resumeWithException(error)
                 } catch (error: IOException) {
-                    continuation.resumeWithException(connectionError(error))
+                    continuation.resumeWithException(connectionError(error, request.url.encodedPath))
                 } catch (_: Exception) {
                     continuation.resumeWithException(AiUnavailable("ChatGPT returned an unreadable response."))
                 }
@@ -43,10 +45,20 @@ internal class ChatGptHttp(private val client: OkHttpClient = OkHttpClient.Build
     }
 }
 
-private fun connectionError(error: IOException) = AiUnavailable(
-    if (error is SocketTimeoutException) "ChatGPT timed out. Retry when your connection is available."
-    else "ChatGPT could not be reached. Check your connection and retry.", true
-)
+private fun connectionError(error: IOException, path: String): AiUnavailable {
+    val stage = when (path) {
+        "/api/accounts/oauth/token" -> "ChatGPT’s sign-in server"
+        "/.well-known/jwks.json" -> "ChatGPT’s identity server"
+        else -> "ChatGPT"
+    }
+    val message = when (error) {
+        is UnknownHostException -> "Second Brain couldn’t resolve $stage. Check Private DNS or try another network."
+        is SSLException -> "Second Brain couldn’t establish a secure connection to $stage. Check the device clock and try another network."
+        is SocketTimeoutException -> "The connection to $stage timed out. Check your internet connection and retry."
+        else -> "Second Brain couldn’t connect to $stage. Check whether a VPN or data restriction is blocking the app."
+    }
+    return AiUnavailable(message, true)
+}
 
 internal fun Response.jsonBody(): JSONObject {
     val source = body?.source() ?: throw AiUnavailable("ChatGPT returned an empty response.")

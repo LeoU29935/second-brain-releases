@@ -81,10 +81,10 @@ internal class ChatGptSubscription(context: Context, private val http: ChatGptHt
 
     suspend fun load() = access { state -> publish(state) }
 
-    suspend fun signIn(addAccount: Boolean, openBrowser: (Uri) -> Unit) = access { state ->
+    suspend fun signIn(addAccount: Boolean, awaitReturn: suspend () -> Unit = {}, openBrowser: (Uri) -> Unit) = access { state ->
         val enabled = state.copy(subscription = true)
         save(enabled)
-        val account = oauth.authorize(state.hostId, state.current.takeUnless { addAccount }, openBrowser)
+        val account = oauth.authorize(state.hostId, state.current.takeUnless { addAccount }, awaitReturn, openBrowser)
         save(enabled.save(account).copy(active = account.clientId))
     }
 

@@ -76,9 +76,15 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         val app = application as BrainApplication
+        app.mainActivityResumed.value = true
         app.automaticOrganization.kick()
         app.edits.retry()
         app.reminders.prepareChannel()
         app.reminders.requestRefresh()
+    }
+
+    override fun onPause() {
+        (application as BrainApplication).mainActivityResumed.value = false
+        super.onPause()
     }
 }

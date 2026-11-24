@@ -18,6 +18,7 @@ import java.security.spec.RSAPublicKeySpec
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.FormBody
 import okhttp3.Request
 import org.json.JSONObject
@@ -29,7 +30,8 @@ private const val DYNAMIC_CLIENT = "dynamic_agent_client"
 private const val CALLBACK_PATH = "/auth/callback"
 
 internal class ChatGptOAuth(private val http: ChatGptHttp) {
-    suspend fun authorize(hostId: String, previous: ChatGptRegistration?, openBrowser: (Uri) -> Unit):
+    suspend fun authorize(hostId: String, previous: ChatGptRegistration?, awaitReturn: suspend () -> Unit,
+        openBrowser: (Uri) -> Unit):
         ChatGptRegistration = withContext(Dispatchers.IO) {
         val state = random()
         val nonce = random()
@@ -78,6 +80,8 @@ internal class ChatGptOAuth(private val http: ChatGptHttp) {
             }
             Triple(code, clientId, redirect)
         }
+        withTimeoutOrNull(120_000) { awaitReturn() }
+            ?: throw AiUnavailable("Return to Second Brain promptly after approving sign-in, then try again.")
         val tokens = tokenRequest(FormBody.Builder().add("grant_type", "authorization_code")
             .add("client_id", clientId).add("code", code).add("redirect_uri", redirect)
             .add("code_verifier", verifier).add("resource", CHATGPT_RESOURCE).build())

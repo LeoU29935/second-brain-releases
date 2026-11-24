@@ -131,8 +131,14 @@ class ChatGptSubscriptionTest {
         val session = ChatGptSubscription(context, transport)
         suspend fun signIn(add: Boolean) = kotlinx.coroutines.coroutineScope {
             val callback = kotlinx.coroutines.CompletableDeferred<Uri>()
+            val waitingToReturn = kotlinx.coroutines.CompletableDeferred<Unit>()
+            val returned = kotlinx.coroutines.CompletableDeferred<Unit>()
+            val earlierRequests = tokenRequests.get()
             val signingIn = async {
-                session.signIn(addAccount = add) { url -> authorization = url; callback.complete(url) }
+                session.signIn(addAccount = add, awaitReturn = {
+                    waitingToReturn.complete(Unit)
+                    returned.await()
+                }) { url -> authorization = url; callback.complete(url) }
             }
             val url = withTimeout(5_000) { callback.await() }
             assertEquals(if (add) "dynamic_agent_client" else issued, url.getQueryParameter("client_id"))
@@ -152,6 +158,9 @@ class ChatGptSubscriptionTest {
                 assertTrue(page.contains("href=\"$CHATGPT_RETURN_URI\""))
                 assertFalse(page.contains("fixture-code"))
             }
+            withTimeout(5_000) { waitingToReturn.await() }
+            assertEquals(earlierRequests, tokenRequests.get())
+            returned.complete(Unit)
             withTimeout(10_000) { signingIn.await() }
         }
         try {

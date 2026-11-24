@@ -32,8 +32,11 @@ import com.leo.secondbrain.ai.OpenAiClient
 import com.leo.secondbrain.ai.Organizer
 import com.leo.secondbrain.backup.Backups
 import com.leo.secondbrain.updates.ReleaseUpdater
+import kotlinx.coroutines.flow.MutableStateFlow
 
 internal class BrainApplication : Application() {
+    val mainActivityResumed = MutableStateFlow(false)
+
     override fun onCreate() {
         super.onCreate()
         TrashCleanup.schedule(this)

@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
@@ -122,7 +123,7 @@ internal class BrainViewModel(val app: BrainApplication) : ViewModel() {
 
     fun loadChatGpt() = changeChatGpt { app.subscription.load(); null }
     fun signInWithChatGpt(add: Boolean, openBrowser: (Uri) -> Unit) = changeChatGpt {
-        app.subscription.signIn(add) { uri ->
+        app.subscription.signIn(add, awaitReturn = { app.mainActivityResumed.first { it } }) { uri ->
             mutableChatGptAction.value = Credential(false, busy = true,
                 message = "Finish in your browser, then tap Open Second Brain to check the connection.")
             openBrowser(uri)
