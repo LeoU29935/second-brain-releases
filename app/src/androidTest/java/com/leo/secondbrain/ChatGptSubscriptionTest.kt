@@ -70,14 +70,16 @@ class ChatGptSubscriptionTest {
                     val fields = (0 until form.size).associate { form.name(it) to form.value(it) }
                     assertEquals(issued, fields["client_id"])
                     when (tokenRequests.incrementAndGet()) {
-                        1 -> {
+                        1, 2 -> {
                             assertEquals("authorization_code", fields["grant_type"])
                             assertEquals(authorization.getQueryParameter("redirect_uri"), fields["redirect_uri"])
                             val hash = MessageDigest.getInstance("SHA-256").digest(fields.getValue("code_verifier").toByteArray())
                             assertEquals(authorization.getQueryParameter("code_challenge"), asUrl(hash))
-                            tokens("start", lifetime = 1).put("id_token", signIdToken()).toString()
+                            val tokens = tokens("start", lifetime = 1).put("id_token", signIdToken())
+                            if (authorization.getQueryParameter("prompt") == null) tokens.put("scope", "openid email")
+                            tokens.toString()
                         }
-                        2 -> {
+                        3 -> {
                             assertEquals("refresh_token", fields["grant_type"])
                             assertEquals("refresh-start", fields["refresh_token"])
                             tokens("renewed").toString()
@@ -127,23 +129,36 @@ class ChatGptSubscriptionTest {
         }.build()
         val transport = ChatGptHttp(client)
         val session = ChatGptSubscription(context, transport)
-        val callback = kotlinx.coroutines.CompletableDeferred<Uri>()
-        val signingIn = async {
-            session.signIn(addAccount = true) { url -> authorization = url; callback.complete(url) }
-        }
-        try {
+        suspend fun signIn(add: Boolean) = kotlinx.coroutines.coroutineScope {
+            val callback = kotlinx.coroutines.CompletableDeferred<Uri>()
+            val signingIn = async {
+                session.signIn(addAccount = add) { url -> authorization = url; callback.complete(url) }
+            }
             val url = withTimeout(5_000) { callback.await() }
-            assertEquals("dynamic_agent_client", url.getQueryParameter("client_id"))
+            assertEquals(if (add) "dynamic_agent_client" else issued, url.getQueryParameter("client_id"))
+            assertEquals(if (add) null else "consent", url.getQueryParameter("prompt"))
             assertEquals("S256", url.getQueryParameter("code_challenge_method"))
             val redirect = Uri.parse(url.getQueryParameter("redirect_uri"))
             Socket("127.0.0.1", redirect.port).use { socket ->
+                socket.soTimeout = 5_000
                 val state = url.getQueryParameter("state")
+                val registration = if (add) "&client_id=$issued" else ""
                 socket.getOutputStream().write(
-                    "GET /auth/callback?code=fixture-code&client_id=$issued&state=$state HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n"
+                    "GET /auth/callback?code=fixture-code$registration&state=$state HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n"
                         .toByteArray()
                 )
+                val page = socket.getInputStream().bufferedReader().readText()
+                assertTrue(page.startsWith("HTTP/1.1 200 OK"))
+                assertTrue(page.contains("href=\"$CHATGPT_RETURN_URI\""))
+                assertFalse(page.contains("fixture-code"))
             }
             withTimeout(10_000) { signingIn.await() }
+        }
+        try {
+            signIn(add = true)
+            assertNotNull(session.settings.value.active)
+            assertFalse(session.settings.value.active?.planAllowed == true)
+            signIn(add = false)
             val reopened = ChatGptSubscription(context, transport)
             reopened.load()
             assertTrue(reopened.settings.value.usingSubscription)
@@ -159,10 +174,9 @@ class ChatGptSubscriptionTest {
             assertTrue(reopened.signOut())
             assertTrue(reopened.settings.value.usingSubscription)
             assertNull(reopened.settings.value.active)
-            assertEquals(3, tokenRequests.get())
+            assertEquals(4, tokenRequests.get())
             assertEquals(0, revocations.get())
         } finally {
-            signingIn.cancel()
             ChatGptSubscription(context, transport).signOut()
             File(fixture, "chatgpt-account.credential").delete()
             fixture.delete()

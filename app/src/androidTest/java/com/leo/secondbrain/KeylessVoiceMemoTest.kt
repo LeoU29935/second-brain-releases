@@ -6,6 +6,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.leo.secondbrain.ai.AiUnavailable
 import com.leo.secondbrain.ai.CaptureProcessor
 import com.leo.secondbrain.ai.LocalTranscription
+import com.leo.secondbrain.ai.claudeCapturePrompt
+import com.leo.secondbrain.ai.readClaudeDrafts
 import com.leo.secondbrain.ai.readChatGptStream
 import com.leo.secondbrain.data.BrainDatabase
 import com.leo.secondbrain.data.BrainDump
@@ -96,6 +98,37 @@ class KeylessVoiceMemoTest {
                 assertEquals(1, reminders)
                 assertArrayEquals(original, recording.readBytes())
             }
+        } finally {
+            db.close()
+        }
+    }
+
+    @Test
+    fun claudeResponseCreatesReviewableDraftsWithoutChangingTheMemoOrDuplicatingResults() = runBlocking {
+        val db = Room.inMemoryDatabaseBuilder(context, BrainDatabase::class.java).build()
+        try {
+            val repository = BrainRepository(db)
+            val transcript = "Blue guitar at the studio. Rehearsal tomorrow at 2 PM. Return the microphone tomorrow."
+            val source = BrainDump(recording = "original.m4a", transcript = transcript)
+            repository.saveCapture(source)
+            val date = LocalDate.of(2026, 11, 24)
+            assertTrue(claudeCapturePrompt(transcript, date).contains(JSONObject.quote(transcript)))
+            val reply = """{"suggestions":[
+                {"kind":"NOTE","title":"Blue guitar at the studio","body":""},
+                {"kind":"EVENT","title":"Rehearsal","startDate":"2026-11-25","startTime":"14:00",
+                 "scheduleEvidence":"Rehearsal tomorrow at 2 PM"},
+                {"kind":"TASK","title":"Return the microphone","startDate":"2026-11-25",
+                 "scheduleEvidence":"Return the microphone tomorrow"}]}"""
+            val suggestions = readClaudeDrafts("```json\n$reply\n```", transcript, date)
+            assertTrue(runCatching { repository.saveClaudeDrafts(source.id, suggestions) }.isFailure)
+            repository.captureFailure(source.id, "Plan limit reached", retry = false)
+            repository.saveClaudeDrafts(source.id, suggestions)
+            assertTrue(runCatching { repository.saveClaudeDrafts(source.id, suggestions) }.isFailure)
+            repository.retryCapture(source.id)
+            assertEquals(CaptureStatus.ATTENTION, repository.release.captureRun(source.id)?.status)
+            assertEquals(3, repository.release.draftsFor(source.id).size)
+            assertTrue(repository.snapshot().proposals().isEmpty())
+            assertEquals(source, repository.release.dump(source.id))
         } finally {
             db.close()
         }

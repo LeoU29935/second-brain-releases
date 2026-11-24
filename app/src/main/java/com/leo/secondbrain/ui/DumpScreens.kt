@@ -3,11 +3,15 @@ package com.leo.secondbrain.ui
 import androidx.compose.animation.togetherWith
 
 import android.Manifest
+import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
 import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.os.SystemClock
+import android.os.PersistableBundle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -56,6 +60,8 @@ import com.leo.secondbrain.data.BrainDump
 import com.leo.secondbrain.data.CaptureStatus
 import com.leo.secondbrain.data.CaptureRun
 import com.leo.secondbrain.ai.objects
+import com.leo.secondbrain.ai.claudeCapturePrompt
+import com.leo.secondbrain.ai.readClaudeDrafts
 import org.json.JSONArray
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -87,6 +93,8 @@ import kotlinx.coroutines.delay
 import org.json.JSONObject
 import java.io.File
 import java.time.LocalDate
+import java.time.Instant
+import java.time.ZoneId
 import com.leo.secondbrain.data.savedScheduleSummary
 
 @Composable
@@ -540,6 +548,16 @@ private fun SourceDialog(dump: BrainDump, model: BrainViewModel, busy: Boolean, 
     drafts: List<Draft>, processing: Boolean, openResult: (String, DraftKind) -> Unit,
     onDelete: () -> Unit, onDraft: (DraftKind) -> Unit) {
     val archived = dump.status == DumpStatus.ARCHIVED
+    val transcript = dump.transcript.orEmpty()
+    val canUseClaude = dump.status == DumpStatus.UNREVIEWED && !processing && transcript.isNotBlank() && drafts.isEmpty() &&
+        (run == null || run.status == CaptureStatus.FAILED || run.status == CaptureStatus.ATTENTION)
+    var claude by rememberSaveable(dump.id) { mutableStateOf(false) }
+    if (claude && canUseClaude) {
+        val zone = run?.zone?.let { runCatching { ZoneId.of(it) }.getOrNull() } ?: ZoneId.systemDefault()
+        ClaudeDraftDialog(dump.id, transcript, Instant.ofEpochMilli(dump.createdAt).atZone(zone).toLocalDate(),
+            model, busy, onClose = { claude = false })
+        return
+    }
     BrainDialog(
         onDismissRequest = onClose, title = { Text("Original capture") },
         text = {
@@ -558,6 +576,7 @@ private fun SourceDialog(dump: BrainDump, model: BrainViewModel, busy: Boolean, 
                 CaptureReceipt(run, captureStatus(run, drafts), processing,
                     { model.retryCapture(dump.id) }, { model.write { model.repository.undoCapture(dump.id) } },
                     { id, kind -> onClose(); openResult(id, kind) })
+                if (canUseClaude) QuietButton({ claude = true }, enabled = !busy) { Text("Organize with Claude") }
                 QuietButton(onDelete, enabled = !busy) { Text("Delete capture") }
                 if (!archived) ChoiceMenu("Create draft", DraftKind.entries, DraftKind::label, onDraft, Glyph.ADD)
                 if (!archived && run == null) QuietButton({ model.retryCapture(dump.id); onClose() }, enabled = !busy) {
@@ -573,6 +592,48 @@ private fun SourceDialog(dump: BrainDump, model: BrainViewModel, busy: Boolean, 
             }
         }, enabled = !busy) { Text(if (archived) "Unarchive" else "Archive") } }
     )
+}
+
+@Composable
+private fun ClaudeDraftDialog(dumpId: String, transcript: String, date: LocalDate, model: BrainViewModel,
+    busy: Boolean, onClose: () -> Unit) {
+    val context = LocalContext.current
+    var reply by remember { mutableStateOf("") }
+    var status by remember { mutableStateOf<String?>(null) }
+    BrainDialog(onDismissRequest = onClose, title = { Text("Organize with Claude") }, text = {
+        Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Open Claude and paste the copied prompt. Then paste Claude’s JSON reply here to create drafts for review.")
+            QuietButton({
+                val clip = ClipData.newPlainText("Second Brain prompt", claudeCapturePrompt(transcript, date))
+                clip.description.extras = PersistableBundle().apply { putBoolean("android.content.extra.IS_SENSITIVE", true) }
+                context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
+                status = "Prompt copied. Paste it into Claude."
+                try {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://claude.ai")))
+                } catch (_: ActivityNotFoundException) {
+                    status = "Prompt copied. Open Claude separately and paste it there."
+                }
+            }, enabled = !busy) { Text("Copy prompt and open Claude") }
+            BrainField(reply, { value ->
+                if (value.length <= 160_000) reply = value
+                else status = "Claude’s reply is too long to import."
+            }, label = { Text("Claude’s reply") }, modifier = Modifier.fillMaxWidth())
+            status?.let { Text(it) }
+        }
+    }, confirmButton = {
+        QuietButton({
+            model.write(onClose) {
+                val proposals = try {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                        readClaudeDrafts(reply, transcript, date)
+                    }
+                } catch (error: com.leo.secondbrain.ai.AiUnavailable) {
+                    throw IllegalArgumentException(error.message)
+                }
+                model.repository.saveClaudeDrafts(dumpId, proposals)
+            }
+        }, enabled = !busy && reply.isNotBlank()) { Text("Import drafts") }
+    }, dismissButton = { QuietButton(onClose) { Text("Cancel") } })
 }
 
 @Composable

@@ -2,7 +2,9 @@ package com.leo.secondbrain.ai
 
 import android.net.Uri
 import android.util.Base64
+import com.leo.secondbrain.CHATGPT_RETURN_URI
 import java.io.EOFException
+import java.io.IOException
 import java.io.InputStream
 import java.math.BigInteger
 import java.net.InetAddress
@@ -48,6 +50,7 @@ internal class ChatGptOAuth(private val http: ChatGptHttp) {
                 .appendQueryParameter("code_challenge", encode(MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray())))
                 .apply {
                     if (previous == null) appendQueryParameter("agent_name_hint", "Second Brain")
+                    if (previous?.planAllowed == false) appendQueryParameter("prompt", "consent")
                     previous?.idToken?.let { appendQueryParameter("id_token_hint", it) }
                     previous?.email?.let { appendQueryParameter("login_hint", it) }
                 }.build()
@@ -59,8 +62,12 @@ internal class ChatGptOAuth(private val http: ChatGptHttp) {
                 callback = readCallback(server, state)
             }
             val result = callback ?: throw AiUnavailable("ChatGPT sign-in timed out. Try again.")
-            if (result.getQueryParameter("error") != null) {
-                throw AiUnavailable("ChatGPT sign-in was declined or could not be completed.")
+            when (result.getQueryParameter("error")) {
+                null -> Unit
+                "access_denied" -> throw AiUnavailable("ChatGPT plan permission wasn’t granted. Continue with ChatGPT to try again.")
+                "temporarily_unavailable", "server_error" ->
+                    throw AiUnavailable("ChatGPT sign-in is temporarily unavailable. Try again later.", true)
+                else -> throw AiUnavailable("ChatGPT couldn’t authorize this connection. Continue with ChatGPT to try again.")
             }
             val code = result.getQueryParameter("code")?.takeIf(String::isNotBlank)
                 ?: throw AiUnavailable("ChatGPT returned no authorization code. Try again.")
@@ -74,8 +81,17 @@ internal class ChatGptOAuth(private val http: ChatGptHttp) {
         val tokens = tokenRequest(FormBody.Builder().add("grant_type", "authorization_code")
             .add("client_id", clientId).add("code", code).add("redirect_uri", redirect)
             .add("code_verifier", verifier).add("resource", CHATGPT_RESOURCE).build())
-        val idToken = tokens.getString("id_token")
-        val claims = validateIdentity(idToken, clientId, nonce)
+        val idToken = tokens.optString("id_token").takeIf(String::isNotBlank)
+            ?: throw AiUnavailable("ChatGPT didn’t return the account identity. Try signing in again.")
+        val claims = try {
+            validateIdentity(idToken, clientId, nonce)
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
+        } catch (error: AiUnavailable) {
+            throw error
+        } catch (_: Exception) {
+            throw AiUnavailable("Second Brain couldn’t verify the ChatGPT account. Try signing in again.")
+        }
         val subject = claims.getString("sub")
         if (previous != null && previous.subject != subject) {
             throw AiUnavailable("ChatGPT returned a different account. Add it as a new account.")
@@ -106,15 +122,19 @@ internal class ChatGptOAuth(private val http: ChatGptHttp) {
 
     private suspend fun tokenRequest(body: FormBody, refreshing: Boolean = false): JSONObject =
         http.request(Request.Builder().url("$CHATGPT_ISSUER/api/accounts/oauth/token").post(body).build()) { response ->
-            val data = response.jsonBody()
             if (!response.isSuccessful) {
-                val error = data.optString("error")
+                val error = runCatching { response.jsonBody().optString("error") }.getOrNull()
                 if (refreshing && (error == "invalid_grant" || error in terminalRefreshErrors)) {
                     throw ExpiredChatGptSession()
                 }
-                throw AiUnavailable("ChatGPT could not renew or complete sign-in. Try again.", response.code >= 500)
+                throw AiUnavailable(when {
+                    error == "invalid_grant" -> "ChatGPT didn’t accept the sign-in code. Start a fresh sign-in."
+                    error == "invalid_client" -> "ChatGPT didn’t recognize this app connection. Check for an app update."
+                    response.code >= 500 -> "ChatGPT sign-in is temporarily unavailable. Try again later."
+                    else -> "ChatGPT couldn’t complete sign-in (HTTP ${response.code}). Try again."
+                }, response.code >= 500)
             }
-            data
+            response.jsonBody()
         }
 
     private suspend fun validateIdentity(token: String, clientId: String, nonce: String): JSONObject {
@@ -163,12 +183,18 @@ private fun readCallback(server: ServerSocket, state: String): Uri? = try {
         }
         val uri = request.getOrNull(1)?.takeIf { it.startsWith("$CALLBACK_PATH?") }?.let(Uri::parse)
         val accepted = request.size == 3 && request[0] == "GET" && uri?.getQueryParameter("state") == state
-        val message = if (accepted) "Return to Second Brain to finish signing in." else "Invalid request."
+        val message = if (accepted) returnPage else "Invalid request."
         val status = if (accepted) "200 OK" else "400 Bad Request"
-        socket.getOutputStream().write(
-            ("HTTP/1.1 $status\r\nContent-Type: text/plain; charset=utf-8\r\nCache-Control: no-store\r\n" +
-                "Connection: close\r\nContent-Length: ${message.length}\r\n\r\n$message").toByteArray(Charsets.US_ASCII)
-        )
+        val mediaType = if (accepted) "text/html" else "text/plain"
+        try {
+            socket.getOutputStream().write(
+                ("HTTP/1.1 $status\r\nContent-Type: $mediaType; charset=utf-8\r\nCache-Control: no-store\r\n" +
+                    "Referrer-Policy: no-referrer\r\nConnection: close\r\nContent-Length: ${message.length}\r\n\r\n$message")
+                    .toByteArray(Charsets.US_ASCII)
+            )
+        } catch (_: IOException) {
+            // The browser can close after sending the callback. A verified state still completes the attempt.
+        }
         uri?.takeIf { accepted }
     }
 } catch (_: SocketTimeoutException) {
@@ -178,6 +204,18 @@ private fun readCallback(server: ServerSocket, state: String): Uri? = try {
 } catch (_: java.net.SocketException) {
     null
 }
+
+private val returnPage = """
+    <!doctype html>
+    <html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><title>Return to Second Brain</title>
+    <body style="max-width:28rem;margin:3rem auto;padding:1rem;font-family:system-ui">
+    <h1>Return to Second Brain</h1>
+    <p>Check the status of your ChatGPT connection in the app.</p>
+    <a style="display:inline-block;padding:0.8rem 1rem;border:1px solid;border-radius:0.8rem"
+      href="$CHATGPT_RETURN_URI">Open Second Brain</a>
+    </body></html>
+""".trimIndent()
 
 private fun readLine(input: InputStream, limit: Int, deadline: Long): String {
     val line = StringBuilder()

@@ -121,8 +121,15 @@ internal class BrainViewModel(val app: BrainApplication) : ViewModel() {
     private var chatGptJob: Job? = null
 
     fun loadChatGpt() = changeChatGpt { app.subscription.load(); null }
-    fun signInWithChatGpt(add: Boolean, openBrowser: (Uri) -> Unit) =
-        changeChatGpt { app.subscription.signIn(add, openBrowser); null }
+    fun signInWithChatGpt(add: Boolean, openBrowser: (Uri) -> Unit) = changeChatGpt {
+        app.subscription.signIn(add) { uri ->
+            mutableChatGptAction.value = Credential(false, busy = true,
+                message = "Finish in your browser, then tap Open Second Brain to check the connection.")
+            openBrowser(uri)
+        }
+        if (app.subscription.settings.value.active?.planAllowed == true) "ChatGPT is connected."
+        else "Signed in. To organize memos, reconnect and allow ChatGPT plan usage."
+    }
     fun cancelChatGptAction() { chatGptJob?.cancel() }
     fun selectChatGptAccount(id: String) = changeChatGpt { app.subscription.selectAccount(id); null }
     fun dismissChatGptNotice() = changeChatGpt { app.subscription.dismissNotice(); null }

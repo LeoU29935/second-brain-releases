@@ -553,6 +553,15 @@ internal class BrainRepository(private val database: BrainDatabase, private val 
         drafts.isNotEmpty()
     }
 
+    suspend fun saveClaudeDrafts(dumpId: String, suggestions: List<Proposal>) = database.withTransaction {
+        val source = release.dump(dumpId)
+        val run = release.captureRun(dumpId)
+        require(source?.status == DumpStatus.UNREVIEWED && !source.transcript.isNullOrBlank() &&
+            (run == null || run.status == CaptureStatus.FAILED || run.status == CaptureStatus.ATTENTION) &&
+            saveSuggestions(dumpId, suggestions)) { "This capture already has results or is still processing." }
+        if (run != null) release.saveCaptureRun(run.copy(status = CaptureStatus.ATTENTION, message = null))
+    }
+
     suspend fun deleteCaptures(ids: Set<String>, voiceOnly: Boolean = false): Set<String> = database.withTransaction {
         val captures = release.dumps()
         val removed = captures.filter { it.id in ids && (!voiceOnly || it.recording != null) }

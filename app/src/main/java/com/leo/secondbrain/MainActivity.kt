@@ -1,5 +1,6 @@
 package com.leo.secondbrain
 
+import android.app.Activity
 import android.os.Bundle
 import android.content.Intent
 import androidx.activity.ComponentActivity
@@ -18,6 +19,20 @@ import com.leo.secondbrain.ui.BrainApp
 import com.leo.secondbrain.ui.BrainViewModel
 import com.leo.secondbrain.ui.theme.SecondBrainTheme
 import kotlinx.coroutines.flow.MutableStateFlow
+
+internal const val OPEN_AI_CONNECTION = "com.leo.secondbrain.OPEN_AI_CONNECTION"
+internal const val CHATGPT_RETURN_URI = "secondbrain://chatgpt/return"
+
+class ChatGptReturnActivity : Activity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        if (intent.action == Intent.ACTION_VIEW && intent.dataString == CHATGPT_RETURN_URI) {
+            startActivity(Intent(this, MainActivity::class.java).setAction(OPEN_AI_CONNECTION)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+        }
+        finish()
+    }
+}
 
 class MainActivity : ComponentActivity() {
     private val launchRequest = MutableStateFlow<Intent?>(null)

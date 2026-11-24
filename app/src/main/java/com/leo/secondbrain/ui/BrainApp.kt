@@ -69,6 +69,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.leo.secondbrain.reminders.OPEN_TODAY
 import com.leo.secondbrain.reminders.ReminderTarget
+import com.leo.secondbrain.OPEN_AI_CONNECTION
 import com.leo.secondbrain.capture.OPEN_CAPTURE
 import com.leo.secondbrain.capture.QUICK_CALENDAR_ACTION
 import com.leo.secondbrain.capture.QUICK_CALENDAR_DAY
@@ -203,6 +204,10 @@ internal fun BrainApp(model: BrainViewModel, preferences: Preferences, layout: W
                     panel = if (operation == "event") Panel.EVENT else Panel.ENTRY
                 }
             }
+        }
+        if (launchAction == OPEN_AI_CONNECTION && panel != Panel.AI) {
+            aiReturn = Panel.SETTINGS
+            panel = Panel.AI
         }
         if (launchAction == OPEN_CAPTURE) {
 

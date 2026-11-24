@@ -55,6 +55,15 @@
         <activity android:name=".capture.QuickCalendarActivity" android:exported="true"
             android:theme="@style/Theme.SecondBrain.WidgetCapture" android:excludeFromRecents="true"
             android:taskAffinity="com.leo.secondbrain.quickcalendar" android:launchMode="singleTop" />
+        <activity android:name=".ChatGptReturnActivity" android:exported="true"
+            android:noHistory="true" android:excludeFromRecents="true" android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="secondbrain" android:host="chatgpt" android:path="/return" />
+            </intent-filter>
+        </activity>
         <activity
             android:name=".MainActivity"
             android:exported="true"
