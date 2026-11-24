@@ -92,8 +92,8 @@ val releaseCode = providers.gradleProperty("secondBrainVersionCode").orNull
 require((releaseVersion == null) == (releaseCode == null)) {
     "Set secondBrainVersionName and secondBrainVersionCode together."
 }
-val appVersionName = releaseVersion ?: "3.1.2"
-val appVersionCode = (releaseCode ?: "22").toInt()
+val appVersionName = releaseVersion ?: "3.2"
+val appVersionCode = (releaseCode ?: "23").toInt()
 require(appVersionName.matches(Regex("(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*)){1,3}")) &&
     when (appVersionName) {
         "0.3" -> appVersionCode == 3
@@ -116,6 +116,7 @@ require(appVersionName.matches(Regex("(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*)){1,3}")
         "3.1" -> appVersionCode == 20
         "3.1.1" -> appVersionCode == 21
         "3.1.2" -> appVersionCode == 22
+        "3.2" -> appVersionCode == 23
         else -> appVersionCode in 9..2_100_000_000
     }) {
     "V0.3 through V0.4.2.1 use version codes 3 through 8. Later releases use increasing version codes."
@@ -195,8 +196,10 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.window)
     implementation(libs.okhttp)
+    implementation(libs.anthropic.java)
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)
+    testImplementation(libs.org.json)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

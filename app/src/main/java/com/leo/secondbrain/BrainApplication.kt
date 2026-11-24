@@ -29,6 +29,7 @@ import com.leo.secondbrain.ai.CredentialStore
 import com.leo.secondbrain.ai.ChatGptSubscription
 import com.leo.secondbrain.ai.LocalTranscription
 import com.leo.secondbrain.ai.OpenAiClient
+import com.leo.secondbrain.ai.ClaudeClient
 import com.leo.secondbrain.ai.Organizer
 import com.leo.secondbrain.backup.Backups
 import com.leo.secondbrain.updates.ReleaseUpdater
@@ -61,8 +62,9 @@ internal class BrainApplication : Application() {
     val credentials by lazy { CredentialStore(this) }
     val subscription by lazy { ChatGptSubscription(this) }
     val ai by lazy { OpenAiClient(credentials) }
+    val claude by lazy { ClaudeClient(this) }
     val localTranscription by lazy { LocalTranscription(assets) }
-    val organizer by lazy { Organizer(ai, subscription, repository) }
+    val organizer by lazy { Organizer(ai, subscription, claude, repository) }
     val automaticOrganization by lazy { AutomaticOrganization(this) }
     val backups by lazy { Backups(this, repository, recordings) }
     val updates by lazy { ReleaseUpdater(this) }

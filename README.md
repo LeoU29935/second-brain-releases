@@ -2,6 +2,10 @@
 
 Second Brain stores your workspace on the device in Room. Local notes, tasks, events, collections, and reminders remain available offline.
 
+## 3.2
+
+- Claude can organize your captures. Open Settings → AI Intelligence → Claude, paste your Anthropic API key, and choose Opus 5.5, Sonnet 5.5 or Haiku 5.5. Requests are billed to your Claude Console account. While Claude is on, it organizes captures and ChatGPT settings are not used for organization. The voice conversation assistant still uses OpenAI.
+
 ## 3.0
 
 - Home starts with global search, pinned shortcuts, and folders that expand in place. Settings → Appearance → Home layout switches to the original folder carousel. Both layouts use the same workspace.
